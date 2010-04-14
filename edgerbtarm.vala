@@ -1,28 +1,42 @@
+/* edgerbtarm.vala
+ *
+ * Edge USB robotic arm user software
+ *
+ * Copyrigt 2010 Vincent Sanders <vince@kyllikki.org>
+ *
+ * Released under the MIT licence.
+ */
+
+/* compile with something like:
+ * valac --pkg libedgerbtarm --vapidir . --pkg gtk+-2.0 -X -I. -X -L. -X -ledgerbtarm edgerbtarm.vala
+ */
+
 using Gtk;
 using edgerbtarm;
 
-
-public class CmdPage : VBox {
+/* This monster does the recording and playback of command lists */
+public class SequencePage : VBox {
 
     public Label label;
     private TreeView cmdlist;
     private ListStore listmodel;
     private TreeIter? lastiter = null;
 
-    private HBox cmdctl; /* controls */
+    private HButtonBox cmdctl; /* controls */
     private Button btn_rec;
     private Button btn_play;
     private Button btn_clear;
 
     private bool recording = false;
     private bool playback = false;
-    TreeIter playback_iter = {};
-
+    TreeIter playback_iter;
 
     private Timer movetimer;
 
-    public CmdPage (MoveBtns btns) {
-        label = new Label ("List1");
+    public signal void movement(int motor_n, bool on, bool dir);
+
+    public SequencePage () {
+        label = new Label ("Sequence 1");
 
         /* list data */
         listmodel = new ListStore(4, typeof (int), typeof (bool), typeof (double), typeof(int));
@@ -34,12 +48,15 @@ public class CmdPage : VBox {
         cmdlist.insert_column_with_attributes (-1, "Operation", new CellRendererText (), "text", 1, "weight", 3);
         cmdlist.insert_column_with_attributes (-1, "Time", new CellRendererText (), "text", 2, "weight", 3);
 
-        /* list controls */
+        /* record button */
         btn_rec = new Button.with_label ("Record");
         btn_rec.clicked.connect(() => { if (recording) { btn_rec.label = "Record"; recording=false;} else { btn_rec.label = "Stop Recording"; recording=true; } });
 
+        /* playback button */
         btn_play = new Button.with_label ("Play");
         btn_play.clicked.connect(() => playbk() );
+
+        /* clear sequence */
         btn_clear = new Button.with_label ("Clear");
         btn_clear.clicked.connect(() => { listmodel.clear(); });
 
@@ -49,18 +66,45 @@ public class CmdPage : VBox {
 
         pack_start (scrlwin, true, true, 0);
 
-        cmdctl = new HBox(true, 0);	  
+        cmdctl = new HButtonBox();	  
         cmdctl.pack_start(btn_rec, false, false, 0);
         cmdctl.pack_start(btn_play, false, false, 0);
         cmdctl.pack_start(btn_clear, false, false, 0);
 
         pack_end (cmdctl, false, false, 0);
 
-        btns.movement.connect((motor_n, on, dir) => mtrmove(motor_n, on, dir));
 
         movetimer = new Timer();
         movetimer.stop();
 
+    }
+
+    private bool plybk_next() {
+        /* stop the current motor action */
+        Value motor_n;
+        Value direction;
+        Value delay;
+        listmodel.get_value(playback_iter, 0, out motor_n);
+        listmodel.get_value(playback_iter, 1, out direction);
+        listmodel.get_value(playback_iter, 2, out delay);
+        movement((int)motor_n, false, (bool)direction);
+
+        if ((playback = true) && 
+            (listmodel.iter_next(ref playback_iter) == true)) {
+                listmodel.get_value(playback_iter, 0, out motor_n);
+                listmodel.get_value(playback_iter, 1, out direction);
+                listmodel.get_value(playback_iter, 2, out delay);
+
+                Timeout.add((int)((double)delay * 1000), plybk_next, Priority.DEFAULT);
+                movement((int)motor_n, true, (bool)direction);                
+                
+        } else {
+            /* stop playback */
+            playback = false;
+            btn_play.label="Play";
+        }
+        
+        return false;
     }
 
     private void playbk() {
@@ -75,24 +119,34 @@ public class CmdPage : VBox {
             playback = false;
             btn_play.label="Play";
         } else {
-            /* start playback */
-            playback = true;
-            btn_play.label="Stop Playback";
-            listmodel.get_iter_first(out playback_iter); /* start at the start */
+            /* start at the start */
+            if (listmodel.get_iter_first(out playback_iter) == true) {
+                /* start playback */
 
-            cmdlist.scroll_to_cell(listmodel.get_path(playback_iter), null, false, 0, 0);
 
-            Value motor_n;
-            Value direction;
-            Value delay;
-            listmodel.get_value(playback_iter, 0, out motor_n);
-            listmodel.get_value(playback_iter, 0, out direction);
-            listmodel.get_value(playback_iter, 0, out delay);
+                playback = true;
+                btn_play.label="Stop Playback";
 
+                cmdlist.scroll_to_cell(listmodel.get_path(playback_iter), null, false, 0, 0);
+
+                Value motor_n;
+                Value direction;
+                Value delay;
+                listmodel.get_value(playback_iter, 0, out motor_n);
+                listmodel.get_value(playback_iter, 1, out direction);
+                listmodel.get_value(playback_iter, 2, out delay);
+
+                int msdelay;
+                msdelay = (int)((double)delay * 1000);
+                Timeout.add(msdelay, plybk_next, Priority.DEFAULT);
+                movement((int)motor_n, true, (bool)direction);                
+
+            }
         }
     }
 
-    private void mtrmove(int motor_n, bool on, bool dir) {
+    /* linked to the buttons movement signal to track buttons */
+    public void move(int motor_n, bool on, bool dir) {
         if (on) {
             movetimer.start();
         } else {
@@ -125,7 +179,7 @@ public class MoveBtns : Table {
         nmtr(2, "Wrist", "Up", "Down", 1);
         nmtr(3, "Elbow", "Fold", "Straighten", 2);
         nmtr(4, "Shoulder", "Out", "In", 3);
-        nmtr(5, "Rotate", "Clockwise", "Counterclockwise", 4);
+        nmtr(5, "Rotate", "Clockwise", "Counter", 4);
     }
 
     public signal void movement(int motor_n, bool on, bool dir);
@@ -183,18 +237,22 @@ int main (string[] args) {
     window.position = WindowPosition.CENTER;
     window.destroy.connect (Gtk.main_quit);
 
+    var armimage= new Image.from_file("edgerbtarm.png");
 
     var tbl = new MoveBtns ();
     tbl.movement.connect((motor_n, on, dir) => usbarm.move(motor_n, on, dir));
 
-    var cmdpage = new CmdPage (tbl);
+    var sequencepage = new SequencePage ();
+    sequencepage.movement.connect((motor_n, on, dir) => usbarm.move(motor_n, on, dir));
+    tbl.movement.connect((motor_n, on, dir) => sequencepage.move(motor_n, on, dir));
 
-    var notebk = new Notebook();
-    notebk.append_page(cmdpage, cmdpage.label);
+    var sequencebook = new Notebook();
+    sequencebook.append_page(sequencepage, sequencepage.label);
 
     var vbox = new VBox (false, 0);
+    vbox.pack_start (armimage, false, false, 0);
     vbox.pack_start (tbl, false, false, 0);
-    vbox.pack_end (notebk, true, true, 0);
+    vbox.pack_end (sequencebook, true, true, 0);
 
     window.add (vbox);
 
