@@ -1,0 +1,115 @@
+This is a simple library and user interface to use the EDGE robotic arm.
+
+Enjoy ;-)
+Vincent Sanders <vince@kyllikki.org>
+
+
+Building the software
+---------------------
+
+It can be built with a simple make invocation:
+
+$ make
+
+This builds both the library "libedgerbtarm.so" and the user interface
+"edgerbtarm"
+
+The library depends on libusb version 1.0 
+
+The UI depends on vala version 0.7.6
+
+If you want to execute "edgerbtarm" from the build directory the
+LD_LIBRARY_PATH needs setting or the error "./edgerbtarm: error while
+loading shared libraries: libedgerbtarm.so: cannot open shared object
+file: No such file or directory" will occur.
+
+$ LD_LIBRARY_PATH=$PWD ./edgerbtarm
+
+If the user executing the program does not have access to the USB
+device or it is not plugged in an error will be displayed "Unable to
+connect to USB device" but the program will not exit.
+
+
+Background
+----------
+
+I have kids, it was a holiday so I bought this kit from Maplin
+Electronics as a project for the holiday. Before we had chance to
+build it someone on reddit posted saying the device needed to be
+reverse engineered [1]. I obliged, and this is the end result. And yes
+the kids did have fun building the kit.
+
+The product
+-----------
+
+The actual robot arm once built is little more than a toy. The main
+issues are:
+
+1) There are no position encoders or even limit switches (fortunately
+there are some slip clutches so things don't break) so all movement is
+performed by timing. Given the timing is dependant on the USB system
+and the application being scheduled appropriately on the PC there is
+already over 50 milliseconds variance in every command. For a half
+second command that is over 10% variance!
+
+2) there is a huge amount of "backlash" in the gear assemblies, do
+*not* expect any kind of repeatability on trained sequences.
+
+For example: 
+    The gripper run from fully open to fully closed takes
+    1.5seconds. So you might expect two 0.75s commands to do the same
+    thing, in fact you require two 0.6s bursts.
+
+3) There is no provision for an external power adaptor so you end up
+consuming batteries. Oh and just in case you had not noticed only two
+of the batteries need be fitted! (between the black contact and the
+orange) The red wired battery contact goes nowhere once it reaches the
+PCB!
+
+The USB protocol
+----------------
+
+I managed to examine the raw USB packets while using the windows
+software. This showed that the control protocol is very simple. 
+
+The USB attached microcontroller in the arm appears as
+
+Bus 005 Device 007: ID 1267:0000 Logic3 / SpectraVideo plc
+
+It has the mandatory control endpoint and a single interrupt endpoint.
+
+A simple USB vendor control transfer of three bytes appears to be the
+entire control method. The bits in these bytes appear to directly
+control the physical lines of the microcontroller. Effectively the
+microcontroller is behaving as nothing more than a USB attached I/O
+expander.
+
+The bits in the first two bytes are used in pairs as inputs to ST1152
+motor controllers. The truth table for these controllers is:
+
+ Input | Motor
+ A | B | Output 
+---+---+-------
+ 0 | 0 | Idle
+ 0 | 1 | Forwards
+ 1 | 0 | Backwards
+ 1 | 1 | Brake
+
+The windows software only ever uses 00, 01 and 10 i.e. it never
+applies a brake signal, this is probably because the circuit is so
+badly designed with no smoothing capacitors the braking currents would
+damage the circuit (alternate explanation is they simply never
+bothered). This may be worth investigating as a way to reduce the
+backlash problems
+
+So to summarise bits 0 and 1 control the first motor, bits 2 and 3 the
+second and so on for all five motors. I know this leaves bits 10-15
+unused, these may be hooked up to unused pins or simply do nothing I
+have not investigated.
+
+Byte three is either 0xff or 0x0 it activates the led by sinking the
+entire current of the LED into the microcontroller without a current
+limit resistor!
+
+
+[1] http://www.reddit.com/r/programming/comments/bkx27/this_device_really_needs_to_be_reverse_engineered/
