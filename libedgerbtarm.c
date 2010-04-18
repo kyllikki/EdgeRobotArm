@@ -23,14 +23,8 @@
 
 #include "libedgerbtarm.h"
 
-typedef enum motor_dir_e {
-    motor_off = 0,
-    motor_forward = 1,
-    motor_back = 2,
-} motor_dir_t;
-
 static libusb_device_handle *handle;
-static motor_dir_t *motors;
+static motor_dir *motors;
 static bool led = false;
 
 static bool 
@@ -66,7 +60,7 @@ stop_arm(libusb_device_handle *handle)
 
 static void
 control_arm(libusb_device_handle *handle, 
-                       motor_dir_t *motors, 
+                       motor_dir *motors, 
                        bool led)
 {
     uint32_t ctrl = 0;
@@ -93,26 +87,16 @@ control_arm(libusb_device_handle *handle,
 
 
 void
-edgerbtarm_ctrl_motor(int motorn, bool on, bool fwd)
+edgerbtarm_ctrl_motor(int motorn, motor_dir direction)
 {
     if ((motorn >= 0) && (motorn <= 5)) { 
-        if (on) {
-            if (fwd) {
-                motors[motorn] = motor_forward;
-            } else {
-                motors[motorn] = motor_back;
-            }
-        } else {
-            motors[motorn] = motor_off;
-        }
+        motors[motorn] = direction;
     } else if (motorn == -1) {
-        if (on) {
-            if (fwd) {
-                led = true;
-            } else {
-                led = false;
-            }
-        }
+        if (direction == motor_forward) {
+            led = true;
+        } else if (direction == motor_back) {
+            led = false;
+        }    
     } else {
         return; /* bad motor number */
     }
@@ -135,7 +119,7 @@ edgerbtarm_init(void)
     ssize_t i = 0;
     int err = 1;
 
-    motors = calloc(5, sizeof(motor_dir_t));
+    motors = calloc(5, sizeof(motor_dir));
 
     libusb_init(NULL);
 

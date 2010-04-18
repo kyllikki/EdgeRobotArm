@@ -4,6 +4,15 @@ Enjoy ;-)
 Vincent Sanders <vince@kyllikki.org>
 
 
+Changes
+-------
+
+Version 0.02
+        Improve library vapi file alowing teh use of the moror direction enum
+
+Version 0.01
+        Initial release
+
 Building the software
 ---------------------
 

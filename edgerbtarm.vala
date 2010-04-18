@@ -33,19 +33,38 @@ public class SequencePage : VBox {
 
     private Timer movetimer;
 
-    public signal void movement(int motor_n, bool on, bool dir);
+    public signal void movement(int motor_n, motor_dir dir);
+
+    public void get_operation (TreeViewColumn tree_column, 
+                          CellRenderer cell, 
+                          TreeModel model, 
+                          TreeIter iter) {
+
+        CellRendererText cellt = (cell as CellRendererText);
+        Value direction;
+        Value weight;
+        model.get_value(iter, 1, out direction);
+        model.get_value(iter, 3, out weight);
+
+        if ((motor_dir)direction == motor_dir.forward) {
+            cellt.text = "forward";
+        } else {
+            cellt.text = "back";
+        }
+        cellt.weight = (int)weight;
+    }
 
     public SequencePage () {
         label = new Label ("Sequence 1");
 
         /* list data */
-        listmodel = new ListStore(4, typeof (int), typeof (bool), typeof (double), typeof(int));
+        listmodel = new ListStore(4, typeof (int), typeof (motor_dir), typeof (double), typeof(int));
 
         /* list control */    
         cmdlist = new TreeView (); 
         cmdlist.set_model (listmodel);
         cmdlist.insert_column_with_attributes (-1, "Motor", new CellRendererText (), "text", 0, "weight", 3);
-        cmdlist.insert_column_with_attributes (-1, "Operation", new CellRendererText (), "text", 1, "weight", 3);
+        cmdlist.insert_column_with_data_func (-1, "Operation", new CellRendererText (), get_operation);
         cmdlist.insert_column_with_attributes (-1, "Time", new CellRendererText (), "text", 2, "weight", 3);
 
         /* record button */
@@ -87,7 +106,7 @@ public class SequencePage : VBox {
         listmodel.get_value(playback_iter, 0, out motor_n);
         listmodel.get_value(playback_iter, 1, out direction);
         listmodel.get_value(playback_iter, 2, out delay);
-        movement((int)motor_n, false, (bool)direction);
+        movement((int)motor_n, motor_dir.off);
 
         if ((playback = true) && 
             (listmodel.iter_next(ref playback_iter) == true)) {
@@ -96,7 +115,7 @@ public class SequencePage : VBox {
                 listmodel.get_value(playback_iter, 2, out delay);
 
                 Timeout.add((int)((double)delay * 1000), plybk_next, Priority.DEFAULT);
-                movement((int)motor_n, true, (bool)direction);                
+                movement((int)motor_n, (motor_dir)direction);
                 
         } else {
             /* stop playback */
@@ -139,17 +158,17 @@ public class SequencePage : VBox {
                 int msdelay;
                 msdelay = (int)((double)delay * 1000);
                 Timeout.add(msdelay, plybk_next, Priority.DEFAULT);
-                movement((int)motor_n, true, (bool)direction);                
+                movement((int)motor_n, (motor_dir)direction);                
 
             }
         }
     }
 
     /* linked to the buttons movement signal to track buttons */
-    public void move(int motor_n, bool on, bool dir) {
-        if (on) {
-            movetimer.start();
-        } else {
+    public void move(int motor_n, motor_dir dir) {
+
+        if (dir == motor_dir.off) {
+            /* command is finished */
             if (recording) {
                 TreeIter iter;
                 listmodel.append (out iter);
@@ -160,6 +179,9 @@ public class SequencePage : VBox {
                 lastiter = iter;
             }
             movetimer.stop();            
+        } else {
+            /* start timing the command when the button is pressed */
+            movetimer.start();
         }
     }
 
@@ -182,17 +204,17 @@ public class MoveBtns : Table {
         nmtr(5, "Rotate", "Clockwise", "Counter", 4);
     }
 
-    public signal void movement(int motor_n, bool on, bool dir);
+    public signal void movement(int motor_n, motor_dir dir);
 
     private void nmtr(int x, string lbl, string fwdlbl, string bklbl, int motrn) {
         var col_label = new Label (lbl);
         var col_fwd = new Button.with_label (fwdlbl);
         var col_bk = new Button.with_label (bklbl);
 
-        col_fwd.pressed.connect (() => movement(motrn, true, true));
-        col_fwd.released.connect (() => movement(motrn, false, true));
-        col_bk.pressed.connect (() => movement(motrn, true, false));
-        col_bk.released.connect (() => movement(motrn, false, false));
+        col_fwd.pressed.connect (() => movement(motrn, motor_dir.forward));
+        col_fwd.released.connect (() => movement(motrn, motor_dir.off));
+        col_bk.pressed.connect (() => movement(motrn, motor_dir.back));
+        col_bk.released.connect (() => movement(motrn, motor_dir.off));
 
         attach_defaults(col_label, x, x+1, 0,1);
         attach_defaults(col_fwd, x, x+1, 1,2);
@@ -218,9 +240,9 @@ public class USBArm {
             edgerbtarm.close();
     }
 
-    public void move (int motor_n, bool on, bool dir) {
+    public void move (int motor_n, motor_dir dir) {
         if (inited == true)
-            edgerbtarm.ctrl_motor(motor_n, on, dir);
+            edgerbtarm.ctrl_motor(motor_n, dir);
     }
 
 }
@@ -240,11 +262,11 @@ int main (string[] args) {
     var armimage= new Image.from_file("edgerbtarm.png");
 
     var tbl = new MoveBtns ();
-    tbl.movement.connect((motor_n, on, dir) => usbarm.move(motor_n, on, dir));
+    tbl.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
 
     var sequencepage = new SequencePage ();
-    sequencepage.movement.connect((motor_n, on, dir) => usbarm.move(motor_n, on, dir));
-    tbl.movement.connect((motor_n, on, dir) => sequencepage.move(motor_n, on, dir));
+    sequencepage.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
+    tbl.movement.connect((motor_n, dir) => sequencepage.move(motor_n, dir));
 
     var sequencebook = new Notebook();
     sequencebook.append_page(sequencepage, sequencepage.label);
