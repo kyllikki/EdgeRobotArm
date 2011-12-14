@@ -7,10 +7,16 @@ Vincent Sanders <vince@kyllikki.org>
 Changes
 -------
 
-Version 0.02
-        Improve library vapi file alowing teh use of the moror direction enum
+Version 1.0
+	First general release 
 
-Version 0.01
+Version 0.3
+       Improve recording interface
+
+Version 0.2
+        Improve library vapi file allowing the use of the motor direction enum
+
+Version 0.1
         Initial release
 
 Building the software

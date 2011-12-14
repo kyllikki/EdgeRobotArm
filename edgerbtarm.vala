@@ -281,10 +281,94 @@ public class USBArm {
     }
 
     public void move (int motor_n, motor_dir dir) {
-        if (inited == true)
+        if (inited == true) {
             edgerbtarm.ctrl_motor(motor_n, dir);
+        } else {
+            if (edgerbtarm.init() == 0)
+                inited = true;
+        }
     }
 
+}
+
+public class RobotArmView : Gtk.Window {
+
+    private VBox vbox;
+    private Notebook sequencebook;
+    private USBArm usbarm;
+    private MoveBtns tbl;
+    private Image armimage;
+    private bool imagehidden;
+
+    public RobotArmView (USBArm nusbarm) {
+        GLib.Object (type: Gtk.WindowType.TOPLEVEL);
+
+        this.usbarm = nusbarm;
+
+        this.title = "Edge USB attached Robot Arm";
+        this.position = WindowPosition.CENTER;
+        set_default_size (300, 100);
+
+        armimage = new Image.from_file("edgerbtarm.png");
+        imagehidden = false;
+
+        tbl = new MoveBtns();
+        tbl.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
+
+        sequencebook = new Notebook();
+
+        HandleAddAction();
+
+        var add_button = new ToolButton.from_stock(Gtk.STOCK_ADD);
+        var refresh_button = new ToolButton.from_stock(Gtk.STOCK_REFRESH);
+        var quit_button = new ToolButton.from_stock(Gtk.STOCK_QUIT);
+        var toolbar = new Toolbar();
+        toolbar.add(quit_button);
+        toolbar.add(add_button);
+        toolbar.add(refresh_button);
+        quit_button.clicked.connect(HandleQuitAction);
+        add_button.clicked.connect(HandleAddAction);
+        refresh_button.clicked.connect(HandleRefreshAction);
+
+        vbox = new VBox (false, 0);
+        vbox.pack_start (toolbar, false, true, 0);
+        vbox.pack_start (armimage, false, false, 0);
+        vbox.pack_start (tbl, false, false, 0);
+        vbox.pack_end (sequencebook, true, true, 0);
+
+        add (vbox);
+
+    }
+
+    private void HandleRefreshAction()
+    {
+        if (imagehidden == false) {
+        
+            armimage.hide();
+            imagehidden = true;
+        } else {
+            armimage.show();
+            imagehidden = false;
+        }
+    }
+
+    private void HandleAddAction()
+    {
+        var sequencepage = new SequencePage();
+        sequencepage.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
+        tbl.movement.connect((motor_n, dir) => sequencepage.move(motor_n, dir));
+
+        sequencebook.append_page(sequencepage, sequencepage.label);
+
+        sequencepage.show_all();
+        
+    }
+
+// handle the quit action
+	private void HandleQuitAction()
+	{
+		Gtk.main_quit();
+	}
 }
 
 int main (string[] args) {
@@ -293,35 +377,11 @@ int main (string[] args) {
 
     var usbarm = new USBArm();
 
-    var window = new Window (WindowType.TOPLEVEL);
-    window.title = "Edge USB attached Robot Arm";
-    window.set_default_size (300, 100);
-    window.position = WindowPosition.CENTER;
-    window.destroy.connect (Gtk.main_quit);
-
-    var armimage= new Image.from_file("edgerbtarm.png");
-
-    var tbl = new MoveBtns ();
-    tbl.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
-
-    var sequencepage = new SequencePage ();
-    sequencepage.movement.connect((motor_n, dir) => usbarm.move(motor_n, dir));
-    tbl.movement.connect((motor_n, dir) => sequencepage.move(motor_n, dir));
-
-    var sequencebook = new Notebook();
-    sequencebook.append_page(sequencepage, sequencepage.label);
-
-    var vbox = new VBox (false, 0);
-    vbox.pack_start (armimage, false, false, 0);
-    vbox.pack_start (tbl, false, false, 0);
-    vbox.pack_end (sequencebook, true, true, 0);
-
-    window.add (vbox);
-
-    window.show_all ();
+    var window = new RobotArmView(usbarm);
+    window.destroy.connect(Gtk.main_quit);
+    window.show_all();
 
     Gtk.main ();
-
 
     return 0;
 }
