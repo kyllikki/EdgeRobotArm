@@ -14,102 +14,137 @@
     }
     #container {
       margin: 0 auto;
-      width: 700px;
+      width: 90%;
     }
     h1 { font-size: 3.8em; color: #ffffff; margin-bottom: 3px; }
     h1 .small { font-size: 0.4em; }
     h1 a { text-decoration: none }
-    h2 { font-size: 1.5em; color: #ffffff; }
+    h2 { font-size: 1.5em; color: #ffffff; clear: both; }
     h3 { text-align: center; color: #ffffff; }
-    a { color: #ffffff; }
+    p img { float: right; }
+    li img { float: right; }
+    a { color: #0000ff; }
+    p.clear { clear: both; }
     .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
     .download { float: right; }
-    pre { background: #000; color: #fff; padding: 15px;}
+    pre { background: #222; color: #fff; padding: 15px;}
     hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
     .footer { text-align:center; padding-top:30px; font-style: italic; }
   </style>
 </head>
 
 <body>
-  <a href="https://github.com/kyllikki/EdgeRobotArm"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
 
   <div id="container">
 
     <div class="download">
-      <a href="https://github.com/kyllikki/EdgeRobotArm/zipball/master">
-        <img border="0" width="90" src="https://github.com/images/modules/download/zip.png"></a>
-      <a href="https://github.com/kyllikki/EdgeRobotArm/tarball/master">
+      <a href="https://github.com/kyllikki/EdgeRobotArm/tarball/v0.3">
         <img border="0" width="90" src="https://github.com/images/modules/download/tar.png"></a>
     </div>
 
-    <h1><a href="https://github.com/kyllikki/EdgeRobotArm">EdgeRobotArm</a>
-      <span class="small">by <a href="https://github.com/kyllikki">kyllikki</a></span></h1>
+    <div>
+      <a href="http://github.com/kyllikki/EdgeRobotArm"><img alt="EdgeRobotArm logo" title="EdgeRobotArm" src="edgerobotarm.png"/></a>
+      <span class="small">by <a href="http://github.com/kyllikki">kyllikki</a></span>
+    </div>
 
     <div class="description">
       Edge robot arm software
     </div>
 
     
-      <p>The "Edge" Robot ARM is a USB controlled robot arm. 
-The arm is also sold under a number of of other names from numerous retailers including from <a href="http://www.maplin.co.uk/robotic-arm-kit-with-usb-pc-interface-266257">Maplin</a></p>
-    
+    <p><a href="screengrab.png"><img alt="GUI" title="GUI" src="screengrab-thumb.png"/></a>The "Edge" Robot ARM is a USB controlled robot arm.
+      The arm is also sold under a number of of other names from numerous retailers including:</p>
+    <ul>
+      <li><a href="http://www.maplin.co.uk/robotic-arm-kit-with-usb-pc-interface-266257">Maplin</a></li>
+      <li><a href="http://www.owirobot.com/products/Robotic-Arm-Edge.html">OWI</a></li>
 
+    </ul>
     
+    <h2>Background and Hardware</h2>
+
+    <p><a href="box.jpg"><img alt="The box teh kit comes in" title="The box the kit comes in" src="box-thumb.jpg"/></a>I have kids, it was a holiday so I bought this kit from Maplin
+      Electronics as a project for the holiday. Before we had chance
+      to build it someone on reddit posted saying
+      the <a href="http://www.reddit.com/r/programming/comments/bkx27/this_device_really_needs_to_be_reverse_engineered/">device
+      needed to be reverse engineered</a>. I obliged, and this is the
+      end result.</p>
+
+
+    <p class="clear">The actual robot arm once built is little more than a toy. The main
+issues are:
+
+      <ul>
+	<li>There are no position encoders or even limit switches (fortunately there are some slip clutches so things don't break) so all movement is performed by timing. 
+	  <p>Given the timing is dependant on the USB system and the application being scheduled appropriately on the PC there is already over 50 milliseconds variance in every command. For a half second command that is over 10% variance!</li>
+
+	<li>There is a huge amount of "backlash" in the gear assemblies, do <em>not</em> expect any kind of repeatability on trained sequences.
+
+	  <p>For example: The gripper run from fully open to fully
+	  closed takes 1.5seconds. So you might expect two 0.75s
+	  commands to do the same thing, in fact you require two 0.6s
+	    bursts.</p>
+	</li>
+
+	<li>There is no provision for an external power adaptor so you end up consuming batteries. </li>
+
+	<li><a href="battery.jpg"><img alt="Two batteries that need to be fitetd" title="Two batteries that actually need to be fitted" src="battery-thumb.jpg"/></a>In case you had not noticed only two of the batteries need
+	  be fitted! (between the black contact and the orange) The red
+	  wired battery contact goes nowhere once it reaches the
+	  PCB!</li>
+
+</ul>      
+    
+    <p class="clear"><a href="pcb-component.jpg"><img alt="PCB bottom side" title="PCB top side" src="pcb-component-thumb.jpg"/></a>The electronics consist of a single sided PCB with a mix of through hole and surface mount devices.</p> 
+
+    <p class="clear"><a href="pcb-copper.jpg"><img alt="PCB bottom side" title="PCB top side" src="pcb-copper-thumb.jpg"/></a>The motors are interfaced through two <a href="SP-ST1152B-A.001.pdf">ST1152B</a> dual motor controllers and a single channel <a href="ST1151_v012.pdf">ST1152A</a> motor controller. The USB to motor driver interface is performed by a pre-programmed <a href="EM78M612.pdf">EM78M612</a> microcontroller.</p>
+
+<p>There appears to be absolutely no decoupling or power supply smooting capacitors anywhere on the board which occasionally makes operation somewhat erratic. I have added a 2400uF electrolytic and a 100nF to the supply rails which has improved operation when using the brake command.</p>
+
       <h2>Dependencies</h2>
-      <p>The library depends on libusb version 1.0 
-
-The UI depends on vala version 0.7.6</p>
+<p>The library depends on libusb version 1.0</p>
+<p>The UI depends on vala version 0.7.6</p>
     
 
     
-      <h2>Install</h2>
-      <p>Building the software
----------------------
+      <h2>Building the software</h2>
 
-It can be built with a simple make invocation:
+<p>The whole project can be built with a simple make invocation:
 
-$ make
+<pre>$ make</pre>
 
-This builds both the library "libedgerbtarm.so" and the user interface
+<p>This builds both the library "libedgerbtarm.so" and the user interface
 "edgerbtarm"
 
-
-
-If you want to execute "edgerbtarm" from the build directory the
+<p>If you want to execute "edgerbtarm" from the build directory the
 LD_LIBRARY_PATH needs setting or the error "./edgerbtarm: error while
 loading shared libraries: libedgerbtarm.so: cannot open shared object
 file: No such file or directory" will occur.
 
-$ LD_LIBRARY_PATH=$PWD ./edgerbtarm
+<pre>$ LD_LIBRARY_PATH=$PWD ./edgerbtarm</pre>
 
-If the user executing the program does not have access to the USB
+<p>If the user executing the program does not have access to the USB
 device or it is not plugged in an error will be displayed "Unable to
-connect to USB device" but the program will not exit.
-</p>
+connect to USB device" but the program will not exit. An attempt to 
+conenct will be made every time the user tries to move the arm.</p>
     
 
     
       <h2>License</h2>
-      <p>MIT</p>
-    
-
-    
-      <h2>Authors</h2>
-      <p>Vincent Sanders (vince@kyllikki.org)<br/>      </p>
+      <p>Released under the MIT License
+    http://www.opensource.org/licenses/mit-license.php</p>
     
 
     
       <h2>Contact</h2>
-      <p>Vincent Sanders (vince@kyllikki.org)<br/>      </p>
+      <p>Vincent Sanders (vince@kyllikki.org)</p>
     
 
     <h2>Download</h2>
     <p>
-      You can download this project in either
-      <a href="https://github.com/kyllikki/EdgeRobotArm/zipball/master">zip</a> or
-      <a href="https://github.com/kyllikki/EdgeRobotArm/tarball/master">tar formats.
+      You can download the latest release (v0.3) of this project in 
+      <a href="https://github.com/kyllikki/EdgeRobotArm/tarball/v0.3">tar format</a>.
     </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
+    <p>You can clone the development branch with <a href="http://git-scm.com">Git</a>
       by running:
       <pre>$ git clone git://github.com/kyllikki/EdgeRobotArm</pre>
     </p>
